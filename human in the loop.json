@@ -1,0 +1,426 @@
+{
+  "name": "human in the loop",
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "X-Post Automation",
+        "formDescription": "Automating the process of X-Post creation.",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Topic",
+              "placeholder": "artificial intelligence in 2026"
+            }
+          ]
+        },
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.6,
+      "position": [
+        0,
+        0
+      ],
+      "id": "5822f19a-64e8-47c6-bbb0-1eb878a2374a",
+      "name": "On form submission",
+      "webhookId": "a1f7732c-8cae-4e3c-ba1d-14410f1e64d5"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.Topic }}",
+        "options": {
+          "systemMessage": "=# Overview\nYou are an AI agent responsible for creating Twitter (X) posts based on user requests. Posts should always be less than 200 characters.\n\n## Instructions\n1. Always use the Tavily Search tool to find accurate, current information about the topic.\n2. Write an informative, engaging tweet (up to 180 characters).\n3. Include a brief reference to the source (e.g., \"via TechCrunch\", \"according to The Verge\") directly in the tweet.\n4. Do not output anything except the final tweet.\n\n## Tool\n- Tavily Search: Use this for real-time web search. Must be used every time before creating the post. Current date and time: {{ $now }}\n\n## Example\n1) Input: \"Create a tweet about NASA's latest discovery.\"\n2) Action: Search the web using Tavily Search.\n3) Output: \"NASA just found signs of ancient riverbeds on Mars—suggesting the Red Planet may have once been home to life. Huge leap in space exploration 🌌 (via NASA) #Mars #SpaceNews\"\n\n## Final Notes\n- Avoid clickbait or speculation—stick to factual and sourced content.\n- Always Use hashtags\n- Use emojis only to enhance visibility.\n- Keep language friendly, concise, and informative.\n- Never use an \"@\" symbol when referencing the source."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        224,
+        0
+      ],
+      "id": "2adb7b74-e47b-48db-88d1-49605d51e460",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "toolDescription": "Using this tool search the web.",
+        "method": "POST",
+        "url": "https://api.tavily.com/search",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"query\": \"{searchTerm}\",\n  \"topic\": \"general\",\n  \"search_depth\": \"advanced\",\n  \"chunks_per_source\": 3,\n  \"max_results\": 5,\n  \"time_range\": \"week\",\n  \"include_answer\": true,\n  \"include_raw_content\": false,\n  \"include_images\": false,\n  \"include_image_descriptions\": false,\n  \"include_domains\": [],\n  \"exclude_domains\": []\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.5,
+      "position": [
+        400,
+        400
+      ],
+      "id": "1a520cee-5cb0-442b-8b78-7a4572fba94d",
+      "name": "Tavily Search",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "QXFTKiXbKub3OBQL",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.2,
+      "position": [
+        128,
+        464
+      ],
+      "id": "d0a92b6d-d982-494e-af22-cbb31b1ca8e3",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "4tKnRhKDrO7iofTH",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "sendAndWait",
+        "sendTo": "muhammadyaseen140k@gmail.com",
+        "subject": "Approval Required for X Post",
+        "message": "={{ $json.Post }}",
+        "responseType": "freeText",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        816,
+        0
+      ],
+      "id": "d4985331-fa93-4edc-a54a-aeb78adbe744",
+      "name": "Send message and wait for response",
+      "webhookId": "8c554846-ce35-47b6-af75-150442cbbe6f",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "KczbnvOWbsyFHJaL",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "inputText": "={{ $json.data.text }}",
+        "categories": {
+          "categories": [
+            {
+              "category": "approved",
+              "description": "The post has been reviewed and accepted as-is. The human explicitly or implicitly expresses approval, indicating that no changes are needed.\n\nExample phrases include:\n\n\"Looks good.\"\n\"Go ahead and send it.\"\n\"This works for me.\"\n\"No changes needed.\""
+            },
+            {
+              "category": "declined",
+              "description": "The post has been reviewed, but the human requests modifications before it is sent, such as tweaks, removing parts, rewording, etc. This could include suggested edits, rewording, or major revisions.\n\nExample phrases include:\n\n\"Can we tweak this part?\"\n\"Make it shorter\"\n\"Change the source to 'American Kennel Club'\"\n\"More emojis\""
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.textClassifier",
+      "typeVersion": 1.1,
+      "position": [
+        1040,
+        0
+      ],
+      "id": "e7837bfe-7305-4922-8bf8-3c4132943f37",
+      "name": "Text Classifier"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.2,
+      "position": [
+        896,
+        400
+      ],
+      "id": "ec16a91d-d1ce-4462-a5d4-596e01869886",
+      "name": "Google Gemini Chat Model1",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "4tKnRhKDrO7iofTH",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Here the post to revise: {{ $('Set Post').item.json.Post }}\n\nHere is the human feedback: {{ $json.data.text }} ",
+        "options": {
+          "systemMessage": "=# Overview\nYou are an expert Twitter writer. Your job is to take an incoming post and revise it based on the feedback the human submitted. Make sure the post characters cannot exceed 200 characters.\n\nAlso if the revision needs real-time data then use Tavily tool to search real-time data otherwise ignore.\n\n# Tool\n- Tavily Search: Use this for real-time web search. Current data and time: {{ $now }}\n\n# Instruction\n- Just give only output text means post text. Don't include text like \"Here is your revised version...\" or anything at the ending like \"how's now\" etc."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        1424,
+        128
+      ],
+      "id": "8b3fc6c2-1c9c-4c90-acda-86dd35611c62",
+      "name": "Revision Agent"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.2,
+      "position": [
+        1280,
+        432
+      ],
+      "id": "865c05cf-9ac4-4bb8-ad5b-d1b4c51e2e74",
+      "name": "Google Gemini Chat Model2",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "4tKnRhKDrO7iofTH",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "toolDescription": "Using this tool search the web.",
+        "method": "POST",
+        "url": "https://api.tavily.com/search",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"query\": \"{searchTerm}\",\n  \"topic\": \"general\",\n  \"search_depth\": \"advanced\",\n  \"chunks_per_source\": 3,\n  \"max_results\": 5,\n  \"time_range\": \"week\",\n  \"include_answer\": true,\n  \"include_raw_content\": false,\n  \"include_images\": false,\n  \"include_image_descriptions\": false,\n  \"include_domains\": [],\n  \"exclude_domains\": []\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.5,
+      "position": [
+        1648,
+        416
+      ],
+      "id": "297bd787-c131-4adf-90f8-d69fbfeeb7a6",
+      "name": "Tavily Search1",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "QXFTKiXbKub3OBQL",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a080d17a-b7be-4fc3-a2ce-3ef2507c5cc3",
+              "name": "Post",
+              "value": "={{ $json.output }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        592,
+        0
+      ],
+      "id": "f4990ae3-117e-4b5c-8a91-ddb4ae3f73ea",
+      "name": "Set Post"
+    },
+    {
+      "parameters": {
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.linkedIn",
+      "typeVersion": 1,
+      "position": [
+        1536,
+        -144
+      ],
+      "id": "b47d81c4-e719-41ee-a808-59369e491b25",
+      "name": "Create a post",
+      "credentials": {
+        "linkedInOAuth2Api": {
+          "id": "SAJLvBFcReliw5e0",
+          "name": "LinkedIn account"
+        }
+      }
+    }
+  ],
+  "pinData": {
+    "AI Agent": [
+      {
+        "json": {
+          "output": "Humanoid robots are hitting factory floors! Boston Dynamics’ electric Atlas now autonomously handles complex sorting tasks with high precision. 🦾 (via TechCrunch) #Robotics #AI #Tech"
+        },
+        "pairedItem": {
+          "item": 0
+        }
+      }
+    ]
+  },
+  "connections": {
+    "On form submission": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tavily Search": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Set Post",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send message and wait for response": {
+      "main": [
+        [
+          {
+            "node": "Text Classifier",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Text Classifier",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Text Classifier": {
+      "main": [
+        [
+          {
+            "node": "Create a post",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Revision Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model2": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Revision Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tavily Search1": {
+      "ai_tool": [
+        [
+          {
+            "node": "Revision Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Post": {
+      "main": [
+        [
+          {
+            "node": "Send message and wait for response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Revision Agent": {
+      "main": [
+        [
+          {
+            "node": "Set Post",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "19e1b0ff-8704-493b-a493-ce1a6a6c587f",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "7dabf7f06805186e57b1b05c42bf2331e5576196a2e2034ce190d2f68d5af951"
+  },
+  "nodeGroups": [],
+  "id": "2hkkqRkXdMpbxZPv",
+  "tags": []
+}
